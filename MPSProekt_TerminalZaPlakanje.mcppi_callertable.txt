@@ -1,3 +1,36 @@
 main
 	__CC2DW
 		____DoICP
+	Keypad_Init
+	Lcd_Init
+		Delay_5500us
+		Delay_1us
+	Lcd_Cmd
+		Delay_1us
+		Delay_5500us
+		Delay_50us
+	Lcd_Out
+		Lcd_Cmd
+			Delay_1us
+			Delay_5500us
+			Delay_50us
+		Lcd_Chr_CP
+			Lcd_Cmd
+				Delay_1us
+				Delay_5500us
+				Delay_50us
+	strlen
+	EEPROM_Write
+	Keypad_Key_Click
+		Keypad_Key_Press
+			Delay_1us
+		Delay_10us
+	Mul_16X16_U
+	Div_16x16_S
+		Div_16x16_S_L
+	WordToStr
+		Div_16X16_U
+	Ltrim
+	EEPROM_Read
+	UART1_Write_Text
+		UART1_Write
