@@ -20,37 +20,104 @@ char* imeRestoran = "Panorama*";
 char* kelner1 = "1 Horhe*";
 char* kelner2 = "2 Lenche*";
 char* kelner3 = "3 Kire*";
-char tempString[10];
-char stringRestoran[15];
+char tempString[8];
+char stringRestoran[10];
+char stringKelner[10];
+int redica[10];
+int masaPosledna = 0;  // reden broj na poslednata masa vo redicata
+int masaPrva = 0;  // reden broj na prvata masa vo redicata
+int masiZafateni = 0; // vkupen broj na zafateni masi
 
 int i = 0;
 int j = 0;
 int kp = 0;
 int k;
 int redenBrSmetka = 1;
-
+int cnt = 0;
+int cnt1 = 0;
+int brInt = 0;
+int popust = 0;
 int baksis = 0;
 int sum = 0;
 char sifraKelner;
 char tmpSifra;
-
-char stringKelner[20];
+int masaNum = 0;
 char tmp;
+
+void interrupt()
+{
+     if(INTF_bit == 1)
+     {
+          masaNum=0;
+          while(!masaNum)
+          {
+                masaNum = ADC_Read(10);
+          }
+
+          redica[masaPosledna] = masaNum;
+          if(masiZafateni == 0)   //ako doshla prva masa za naplata
+          {
+              TMR0 = 131;
+              cnt = 0;
+          }
+
+          // dodadeno 20/02 19:45
+          if (masaPosledna == 9)  // ako poslednata pozicija sega e zafatena, pochni od nulta
+          {
+               masaPosledna = 0;
+          }
+          else {
+               masaPosledna++; // pomesti posledna na sledna pozicija za sledna masa
+          }
+          // do tuka
+
+          masiZafateni++; // zgolemi go brojot na vkupno zafateni masi
+
+          INTF_bit = 0;
+     }
+
+     if (TMR0IF_bit == 1)
+     {
+        if(masiZafateni >0)
+        {
+            cnt++;
+            if (cnt >= 25)
+            {
+               cnt1++;
+               if(cnt1 == 21)
+               {
+                  popust += 5;
+                  cnt1 = 0;
+               }
+               TMR0 = 241;
+            }
+            else
+            {
+                TMR0 = 131;
+            }
+        }
+        TMR0IF_bit = 0;
+     }
+
+}
 
 void main() {
     ANSEL = 0;
-    ANSELH.b1 = 1;
+    ANSELH = 4;
+    TRISB  = 0b00000011; // RB0 e vlezen pin
+    INTCON = 0b10110000;
     C1ON_bit = 0;
     C2ON_bit = 0;
     Keypad_Init();
     Lcd_Init();
-    //UART1_Init(9600);
+    UART1_Init(9600);
     Lcd_Cmd(_LCD_CURSOR_OFF);
     Lcd_Cmd(_LCD_CLEAR);
     Lcd_Out(1,1,"Nema za Naplata");
 
 
     /* Vnesuvanje vo EEPROM */
+
     for (i=0; i<strlen(imeRestoran); i++) {
         EEPROM_Write(j + i, imeRestoran[i]);
     }
@@ -58,191 +125,266 @@ void main() {
     for (i=0; i<strlen(kelner1); i++) {
         EEPROM_Write(j + i, kelner1[i]);
     }
-    j += 16; // za nov red vo EEPROM
+    j += 16;
     for (i=0; i<strlen(kelner2); i++) {
         EEPROM_Write(j + i, kelner2[i]);
     }
-    j += 16; // za nov red vo EEPROM
+    j += 16;
     for (i=0; i<strlen(kelner3); i++) {
         EEPROM_Write(j + i, kelner3[i]);
     }
 
-
-    // NOTES
-    // dali ko ke citas od eeprom trebit da convertiras od hex?
-    // trebit while za celata aplikacija -> rb0 i rb1 pinoj
-
-    // TODO: to implement
-    // Dodaj baksis na suma, plus dodaj popust od tajmer
-
     // while ciklus za CENA NA PLAKJANJE
-    while(1)
-    {
-          kp = 0;
-          do  {
-              kp = Keypad_Key_Click();
-          }
-          while (!kp);
+    // if(1){
+      OPTION_REG = 0b10000101;
+      TMR0 = 241;
 
-          switch (kp)
-          {
-                case 1: kp = 1; break;
-                case 2: kp = 4; break;
-                case 3: kp = 7; break;
-                case 4: kp = 'b'; break;  //back
-                case 5: kp = 2; break;
-                case 6: kp = 5; break;
-                case 7: kp = 8; break;
-                case 8: kp = 0; break;
-                case 9: kp = 3; break;
-                case 10: kp = 6; break;
-                case 11: kp = 9; break;
-                case 12: kp = 'k'; break; // OK
-          }
+      while(1)
+      {
+              sum = 0;
+              baksis = 0;
+              if (masiZafateni == 0)
+              {
+                //Lcd_Cmd(_LCD_CURSOR_OFF);
+                //Lcd_Cmd(_LCD_CLEAR);
+                Lcd_Out(1,1,"Nema za Naplata");
+              }
+              else
+              {
+                Lcd_Cmd(_LCD_CURSOR_OFF);
+                Lcd_Cmd(_LCD_CLEAR);
+                WordToStr(redica[masaPrva], tempString);
+                Ltrim(tempString);
+                Lcd_Out(1,1,"Masa ");
+                Lcd_Out(1,6,tempString);
 
-          if((kp!= 'b') && (kp!= 'k'))
-          {
-              sum = sum * 10 + kp;
-          }
+                while(1)
+                {
+                      kp = 0;
+                      do  {
+                          kp = Keypad_Key_Click();
+                      }
+                      while (!kp);
 
-          else if (kp=='b')
-          {
-               sum = sum/10;
-          }
-          else if (kp=='k')
-          {
+                      switch (kp)
+                      {
+                            case 1: kp = 1; break;
+                            case 2: kp = 4; break;
+                            case 3: kp = 7; break;
+                            case 4: kp = 'b'; break;  //back
+                            case 5: kp = 2; break;
+                            case 6: kp = 5; break;
+                            case 7: kp = 8; break;
+                            case 8: kp = 0; break;
+                            case 9: kp = 3; break;
+                            case 10: kp = 6; break;
+                            case 11: kp = 9; break;
+                            case 12: kp = 'k'; break; // OK
+                      }
+
+                      if((kp >= 0) && (kp <= 9))
+                      {
+                          sum = sum * 10 + kp;
+                      }
+
+                      else if (kp=='b')
+                      {
+                           sum = sum/10;
+                      }
+                      else if (kp=='k')
+                      {
+                          Lcd_Cmd(_LCD_CLEAR);
+                          Lcd_Out(1,1,"Naplata:");
+                          WordToStr(sum, tempString);
+                          Ltrim(tempString);
+                          Lcd_Out(1,10,tempString);
+                          Lcd_Out(2,1,"Baksis:");
+
+                          break;
+                      }
+                } // end while cena
+
+                // while ciklus za BAKSIS
+                while(1)
+                {
+
+                      kp = 0;
+                      do  {
+                          kp = Keypad_Key_Click();
+                      }
+                      while (!kp);
+
+                      switch (kp)
+                      {
+                            case 1: kp = 1; break;
+                            case 2: kp = 4; break;
+                            case 3: kp = 7; break;
+                            case 4: kp = 'b'; break;  //back
+                            case 5: kp = 2; break;
+                            case 6: kp = 5; break;
+                            case 7: kp = 8; break;
+                            case 8: kp = 0; break;
+                            case 9: kp = 3; break;
+                            case 10: kp = 6; break;
+                            case 11: kp = 9; break;
+                            case 12: kp = 'k'; break; // OK
+                      }
+
+                      if((kp >= 0) && (kp <= 9))
+                      {
+                        baksis = baksis * 10 + kp;
+                    }
+
+                    else if (kp=='b')
+                    {
+                         baksis = baksis/10;
+                    }
+                    else if (kp=='k')
+                    {
+                        WordToStr(baksis, tempString);
+                        Ltrim(tempString);
+                        Lcd_Out(2,9,tempString);
+                        strcpy(tempString, ""); // dodadeno za proverka v2.2
+                        break;
+                    }
+
+              } // end while baksis
+
+              sum = sum + baksis - popust; // vkupnata cena shto treba da se plati so popust
+              Lcd_Cmd(_LCD_CURSOR_OFF);
               Lcd_Cmd(_LCD_CLEAR);
-              Lcd_Out(1,1,"Naplata:");
-              WordToStr(sum, tempString);
-              Ltrim(tempString);
-              Lcd_Out(1,9,tempString);
-              Lcd_Out(2,1,"Baksis:");
-              break;
-          }
-    }
 
-    // while ciklus za BAKSIS
-    while(1)
-    {
-          kp = 0;
-          do  {
-              kp = Keypad_Key_Click();
-          }
-          while (!kp);
+              //memset(tempString, '\0', 8);
 
-          switch (kp)
-          {
-                case 1: kp = 1; break;
-                case 2: kp = 4; break;
-                case 3: kp = 7; break;
-                case 4: kp = 'b'; break;  //back
-                case 5: kp = 2; break;
-                case 6: kp = 5; break;
-                case 7: kp = 8; break;
-                case 8: kp = 0; break;
-                case 9: kp = 3; break;
-                case 10: kp = 6; break;
-                case 11: kp = 9; break;
-                case 12: kp = 'k'; break; // OK
-          }
+              // while ciklus za EUSART  ( ** pak prajt problemi nekoj ciklusov ** Irina)
+              while(1)
+              {
 
-          if((kp!= 'b') && (kp!= 'k'))
-          {
-              baksis = baksis * 10 + kp;
-          }
+                    kp = 0;
 
-          else if (kp=='b')
-          {
-               baksis = baksis/10;
-          }
-          else if (kp=='k')
-          {
-              WordToStr(baksis, tempString);
-              Ltrim(tempString);
-              Lcd_Out(2,9,tempString);
-              break;
-          }
+                    do  {
+                        kp = Keypad_Key_Click();
+                    }
+                    while (!kp);
 
-    }
+                    switch (kp)
+                    {
+                          case 1: kp = 1; break;
+                          case 2: kp = 4; break;
+                          case 3: kp = 7; break;
+                          case 4: kp = 10; break;  //back
+                          case 5: kp = 2; break;
+                          case 6: kp = 5; break;
+                          case 7: kp = 8; break;
+                          case 8: kp = 0; break;
+                          case 9: kp = 3; break;
+                          case 10: kp = 6; break;
+                          case 11: kp = 9; break;
+                          case 12: kp = 11; break; // OK
+                    }
 
+                    if((kp >= 0) && (kp <= 9))
+                    {
+                       sifraKelner = kp + '0';
 
-    // while ciklus za EUSART
-    while(1)
-    {
-          kp = 0;
-          do  {
-              kp = Keypad_Key_Click();
-          }
-          while (!kp);
+                    }
 
-          switch (kp)
-          {
-                case 1: kp = 1; break;
-                case 2: kp = 4; break;
-                case 3: kp = 7; break;
-                case 4: kp = 'b'; break;  //back
-                case 5: kp = 2; break;
-                case 6: kp = 5; break;
-                case 7: kp = 8; break;
-                case 8: kp = 0; break;
-                case 9: kp = 3; break;
-                case 10: kp = 6; break;
-                case 11: kp = 9; break;
-                case 12: kp = 'k'; break; // OK
-          }
+                    PORTB.B4 = 1;
+                    // BOMB
 
-          if (kp != 'k' && kp != 'b')
-          {
-             sifraKelner = kp;
+                    if (kp==11)
+                    {
+                       // se rabotat skoro
+                       j = 16;
+                       k = 0;
+                       for (i=0;i < 3; i++) {
 
-          }
+                          tmpSifra = EEPROM_Read(j);
 
+                          // get sifra kelner + ime + vkupnacena
+                          if (sifraKelner == tmpSifra) {
+                             //UART1_Write_Text("Vo IF");         //test
+                            j = j + 2;
+                             tmp = EEPROM_Read(j);
+                             PORTB = tmp;
+                             while(tmp != '*') {
+                                stringKelner[k] = tmp;
+                                //UART1_Write(tmp);  //test
+                                k++;
+                                j++;
+                                tmp = EEPROM_Read(j);
+                             }
 
-          if (kp=='k')
-          {
-             j = 16;
-             k = 0;
-             for (i=0;i < 3; i++) {
-                tmpSifra = EEPROM_Read(j);
+                             // get naziv restoran
+                             k = 0;
+                             tmp = 0;
 
-                // get sifra kelner + ime + vkupnacena
-                if (sifraKelner == tmpSifra) {
-                   j = j + 2;
-                   tmp = EEPROM_Read(j);
-                   while(tmp != '*') {
-                      stringKelner[k] = tmp;
-                      k++;
-                      j++;
-                      tmp = EEPROM_Read(j);
-                   }
+                             while (1) {
+                                tmp = EEPROM_Read(k);
+                                if(tmp=='*')
+                                {
+                                 break;
+                                }
+                                stringRestoran[k] = tmp;
+                                k++;
+                             }
 
-                   // get naziv restoran
-                   k = 0;
-                   tmp = EEPROM_Read(k);
-                   while (tmp != '*') {
-                      stringRestoran[k] = tmp;
-                      k++;
-                   }
+                              UART1_Write_Text(stringRestoran);
+                              UART1_Write_Text(" NUM:");
 
-                   // prati sve na eusart
-                   UART1_Write_Text(stringRestoran);
-                   UART1_Write_Text(" NUM:");
-                   UART1_Write_Text(redenBrSmetka);
-                   UART1_Write_Text(" KELNER:");
-                   UART1_Write_Text(stringKelner);
-                   UART1_Write_Text(" VKUPNO:");
-                   WordToStr(sum, tempString);
-                   UART1_Write_Text(tempString);
+                              WordToStr(redenBrSmetka, tempString);
+                              Ltrim(tempString);
+                              UART1_Write_Text(tempString);
+                              memset(tempString, '\0', 8);
 
-                   redenBrSmetka++;
+                              UART1_Write_Text(" KELNER:");
 
-                } else {
-                   j = j + 16;
-                }
+                              UART1_Write_Text(stringKelner);
+                              memset(stringKelner, '\0', 10);
 
-             }
-          }
+                              UART1_Write_Text(" VKUPNO:");
 
-    }
+                              WordToStr(sum, tempString);
+                              Ltrim(tempString);
+                              UART1_Write_Text(tempString);
+                              memset(tempString, '\0', 8);
 
+                              redenBrSmetka++;
+
+                             break;
+                          } else {
+                             j = j + 16;
+                          }
+
+                       } // end for za kelneri
+
+                       break;
+                    } // end if kliknato OK
+
+                }// end while UART
+
+            masiZafateni--; // namali go brojot vkupno zafateni masi
+
+            // dodadeno 20/02 19:45
+            if (masaPrva == 9) // posledna masa
+            {
+                masaPrva = 0;
+            }
+            else {
+                 masaPrva++; // odi na sledna masa za sluzhenje (nadesno vo nizata)
+            }
+            // do tuka
+
+            if(masiZafateni>=0)
+            {
+                cnt1 = 0;
+                cnt = 0;
+                popust = 0;
+                TMR0 = 131;
+            }
+
+          } // end else (ima masi za sluzhenje)
+
+    }// end main while
+    //} od regionot e
 }
