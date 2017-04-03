@@ -122,6 +122,6 @@ LCD: | М | a | s | a | | 8 | | | | | | | | | | |
 ...
 
 ## Автори
-* [Ирина Ристевска] (https://www.facebook.com/irina.ristevska)
-* [Кристијан Ѓорески] (https://www.facebook.com/kgjoreski)
-* [Ѓорѓи Кирков] (https://github.com/kirkovg)
+* [Ирина Ристевска](https://www.facebook.com/irina.ristevska)
+* [Кристијан Ѓорески](https://www.facebook.com/kgjoreski)
+* [Ѓорѓи Кирков](https://github.com/kirkovg)
